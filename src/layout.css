@@ -1,0 +1,75 @@
+/* Compact page headings keep the data in view on every route. */
+.detail-heading,
+.review-heading {
+  border-bottom: 1px solid #d9dbd4;
+}
+.detail-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 8px 0 23px;
+}
+.detail-heading-main { min-width: 0; }
+.detail-heading h1,
+.review-heading h1 {
+  font-size: clamp(38px, 4.5vw, 60px);
+  line-height: 1.02;
+  letter-spacing: -.055em;
+  margin: 10px 0 12px;
+  overflow-wrap: anywhere;
+}
+.detail-heading .detail-path { margin: 0 0 13px; }
+.detail-activity {
+  min-width: 178px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 0 4px 21px;
+  border-left: 1px solid #d9dbd4;
+}
+.detail-activity span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #768680;
+}
+.detail-activity strong { font-size: 18px; letter-spacing: -.5px; }
+.detail-activity small { color: #748580; font-size: 11px; }
+.review-heading { padding: 9px 0 20px; }
+.review-heading h1 { margin-bottom: 9px; }
+.review-heading p {
+  max-width: 790px;
+  margin: 0;
+  color: #66766f;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.review-tabs { margin-top: 12px; }
+
+:root[data-theme='dark'] .detail-heading,
+:root[data-theme='dark'] .review-heading,
+:root[data-theme='dark'] .detail-activity { border-color: #3b4947; }
+:root[data-theme='dark'] .detail-heading .detail-path,
+:root[data-theme='dark'] .detail-activity span,
+:root[data-theme='dark'] .detail-activity small,
+:root[data-theme='dark'] .review-heading p { color: #aebfb3; }
+
+@media (max-width: 680px) {
+  .topbar-inner { gap: 8px; }
+  .brand { font-size: 16px; letter-spacing: -1px; }
+  .topbar nav { gap: 10px; }
+  .detail-heading { display: block; padding: 5px 0 20px; }
+  .detail-heading h1,
+  .review-heading h1 { font-size: clamp(35px, 10.8vw, 48px); }
+  .detail-activity {
+    min-width: 0;
+    margin-top: 19px;
+    padding-left: 13px;
+  }
+  .review-heading { padding: 7px 0 17px; }
+  .review-heading p { font-size: 12px; }
+}
+@media (max-width: 380px) {
+  .brand { font-size: 15px; }
+}
