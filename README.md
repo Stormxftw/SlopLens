@@ -64,41 +64,24 @@ The `.local/` folder and `.env.local` are excluded from Git. Key changes and tes
 
 Jev grades the documentation supplied for each project. Each dimension is scored from **0 to 3**, including fractional values. The graphic shows the current `portfolio-v2-automatic-explanation` rubric; the [questions and classification rules](server/portfolio-review.ts) and [citation checks](src/evidence-quality.ts) are the source of truth.
 
-```mermaid
-%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"16px","clusterBkg":"#f7f8f5","clusterBorder":"#d5dfd8"},"flowchart":{"wrappingWidth":400,"nodeSpacing":24,"rankSpacing":28}}}%%
-flowchart TB
-    subgraph ratings[Three judgments from the supplied notes]
-        direction LR
-        U["USE CASE (U) · 40%<br/>0 · No use case<br/>1 · Broad idea or audience<br/>2 · User + useful action<br/>3 · Benefit also documented"]
-        N["NEXT RELEASE (N) · 35%<br/>0 · No concrete release<br/>1 · Unclear deliverable or blocker<br/>2 · Bounded release + plausible path<br/>3 · Verification also stated"]
-        W["WORKING RESULT (W) · 25%<br/>0 · No demonstrated output<br/>1 · Prototype or partial workflow<br/>2 · End-to-end workflow<br/>3 · Verification or real use case"]
-    end
+[![Jev rubric: use case 40%, next release 35%, and working result 25% produce a 0–100 evidence rating. Citation and confidence checks determine finish, investigate, or deprioritize candidates.](docs/jev-grading-rubric.svg)](docs/jev-grading-rubric.svg)
 
-    U --> R
-    N --> R
-    W --> R
-    R["EVIDENCE RATING · 0–100<br/>Round: 100 × (0.40U + 0.35N + 0.25W) ÷ 3<br/>Orders eligible leads"]
-    R --> G["EVIDENCE + CONFIDENCE CHECKS<br/>A high rating alone is insufficient<br/>Candidates need at least two excerpts<br/>Full rules are below the graphic"]
-    G --> F["FINISH CANDIDATE<br/>Three checked citations<br/>U ≥ 1.8 · N ≥ 1.8 · W ≥ 1.5<br/>Every rating confidence ≥ 0.65<br/>No explicit negative blocker"]
-    G --> I["INVESTIGATE<br/>Other outcome rules are not met<br/>Keep uncertainty visible<br/>Missing evidence ≠ low value"]
-    G --> D["DEPRIORITIZE CANDIDATE<br/>Explicit negative + clear concern<br/>Blocker confidence ≥ 0.70<br/>Every rating confidence ≥ 0.65<br/>Never an automatic archive"]
+*Open the graphic for a larger view. The [editable Mermaid source](docs/jev-grading-rubric.mmd) is included; the README uses a rendered SVG to keep text and connectors consistent in light and dark themes.*
 
-    classDef input fill:#e9eee7,stroke:#6b8577,color:#203c30;
-    classDef calculation fill:#e9eff5,stroke:#68879b,color:#263f50;
-    classDef finish fill:#e4efe7,stroke:#668771,color:#284632;
-    classDef investigate fill:#f6eedc,stroke:#ab9059,color:#534329;
-    classDef pause fill:#f4e7e1,stroke:#ad7e68,color:#583e32;
-    class U,N,W input;
-    class R,G calculation;
-    class F finish;
-    class I investigate;
-    class D pause;
-```
+### The three scoring scales
+
+| Score | Use case (U) · 40% | Next release (N) · 35% | Working result (W) · 25% |
+| --- | --- | --- | --- |
+| **0** | No use case | No concrete release | No demonstrated output |
+| **1** | Broad idea or audience | Unclear deliverable or blocker | Prototype or partial workflow |
+| **2** | User and useful action | Bounded release and plausible path | End-to-end workflow |
+| **3** | Benefit also documented | Verification also stated | Verification or real use case |
 
 ### How to read the graphic
 
 - **Citation checks:** The selected excerpt must appear in the actual base or deep request, pass the local eligibility check for that dimension, have citation confidence of at least **0.65**, and not also be selected as a concern. Operating policies and recognized future-plan sections cannot establish existing output; an unchecked task cannot prove completion.
 - **Outcome checks:** Finish and deprioritize candidates both require at least **two supplied excerpts** and confidence of at least **0.65 for every rating**. A qualifying explicit negative concern takes precedence. Everything else remains investigate. These confidence thresholds are model signals, not measured probabilities that a project will succeed.
+- **Finish candidate:** All three dimensions need checked citations, with scores of **U ≥ 1.8**, **N ≥ 1.8**, and **W ≥ 1.5**, and no explicit negative blocker. **Deprioritize candidate:** An explicit no-value or duplicate blocker needs confidence of at least **0.70** and a clear, non-negated cited concern. Suggestions never automatically archive a project.
 - **Possible leads:** A project needs a checked working-result citation with a score of at least **1.5**, or a checked use-case citation with a score of at least **1.8**. Deprioritize candidates are excluded. Finish candidates come first, followed by the evidence rating; the lowest rating confidence breaks ties. An investigate result can still be a possible lead.
 - **No eligible notes:** The app handles the evidence gap locally, displays no numeric grade, and makes no Jev call. When a result is inconclusive and more previewed evidence exists, one automatic deep assessment can use it.
 - **Separate attention order:** “Needs a decision” uses age × capped recorded effort: **45% active time, 35% tokens, 20% sessions**. Those effort figures and estimated API dollars do not increase the forward evidence rating. See the [attention-order calculation](src/review.ts).

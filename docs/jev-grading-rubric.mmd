@@ -1,0 +1,30 @@
+%% README uses the rendered SVG so GitHub cannot reflow or recolor this diagram.
+%% Render: npx --yes --package @mermaid-js/mermaid-cli@12.0.0 mmdc -i docs/jev-grading-rubric.mmd -o docs/jev-grading-rubric.svg --no-font-embed --size 1200 -b '#f7f8f5'
+%%{init: {"theme":"base","fontFamily":"Arial, sans-serif","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","lineColor":"#657970","primaryTextColor":"#243a30"},"flowchart":{"htmlLabels":false,"wrappingWidth":440,"nodeSpacing":24,"rankSpacing":36,"padding":18,"diagramPadding":24,"curve":"linear"}}}%%
+flowchart TB
+    accTitle: How Jev grades project evidence
+    accDescr: Three ratings from zero to three produce an evidence rating from zero to one hundred. Use case has forty percent weight, next release thirty-five percent, and working result twenty-five percent. Evidence and confidence checks determine finish, investigate, or deprioritize candidates. Missing evidence is not low value, and no project is automatically archived.
+
+    U["Use case · 40%<br/>Score 0–3"]
+    N["Next release · 35%<br/>Score 0–3"]
+    W["Working result · 25%<br/>Score 0–3"]
+    U --> R
+    N --> R
+    W --> R
+    R["EVIDENCE RATING · 0–100<br/>Weighted score = 0.40U + 0.35N + 0.25W<br/>Rating = round(100 × weighted score ÷ 3)"]
+    R --> G["CHECK EVIDENCE + CONFIDENCE<br/>Validate citations and concerns<br/>Apply the outcome rules below"]
+    G --> F["FINISH CANDIDATE<br/>Three supported dimensions<br/>Scores and confidence qualify"]
+    G --> I["INVESTIGATE<br/>More certainty is needed<br/>Missing evidence ≠ low value"]
+    G --> D["DEPRIORITIZE CANDIDATE<br/>Explicit negative evidence<br/>Confidence qualifies"]
+
+    classDef input fill:#e9eee7,stroke:#6b8577,stroke-width:1.5px,color:#203c30;
+    classDef calculation fill:#e9eff5,stroke:#68879b,stroke-width:1.5px,color:#263f50;
+    classDef finish fill:#e4efe7,stroke:#668771,stroke-width:1.5px,color:#284632;
+    classDef investigate fill:#f6eedc,stroke:#ab9059,stroke-width:1.5px,color:#534329;
+    classDef pause fill:#f4e7e1,stroke:#ad7e68,stroke-width:1.5px,color:#583e32;
+    class U,N,W input;
+    class R,G calculation;
+    class F finish;
+    class I investigate;
+    class D pause;
+    linkStyle default stroke:#657970,stroke-width:2px;

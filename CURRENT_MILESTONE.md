@@ -16,7 +16,7 @@
 - [x] Key lifecycle, actual DPAPI, redacted connection testing, and origin protections pass automated tests
 - [x] Key settings are verified in the browser at desktop and narrow widths
 
-**Release closeout:** The automatic review, rubric graphic, and encrypted key settings are verified and ready for the requested commit and push. Local caches, credentials, and identifying screenshots stay excluded.
+**Release closeout:** The automatic review and encrypted key settings are released. The README rubric rendering correction uses a self-contained SVG, keeps editable Mermaid source, and moves detailed scoring scales into a text table. It is verified at README and narrow widths in light and dark surroundings. Local caches, credentials, and identifying screenshots stay excluded.
 
 **Not part of this milestone:** A second model provider, autonomous code execution in other projects, scheduled background calls, or automatic archive decisions.
 

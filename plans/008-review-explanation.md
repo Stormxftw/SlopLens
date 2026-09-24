@@ -33,7 +33,7 @@ The explanation uses deterministic wording and exact excerpts. It checks evidenc
 - `server/review-batch.ts`: metadata cache v2, zero-call evidence gaps, saved base results after failed expansion.
 - `src/PortfolioReviewView.tsx`: show the explanation directly; group retries; keep evidence, ratings, and assistant export optional.
 - `tests/portfolio.test.ts`: synthetic regression cases for missed late tasks, long safe notes, privacy, invalid IDs, contradictory roles, confidence, cache, and partial failures.
-- `README.md`: a rendered Mermaid rubric graphic documents the three 0–3 scales, 40/35/25 weighting, citation checks, classification thresholds, and the separate attention order.
+- `README.md`, `docs/jev-grading-rubric.mmd`, `docs/jev-grading-rubric.svg`: an embedded SVG preserves the rubric layout across README renderers; editable Mermaid source stays beside it. A text table carries the three 0–3 scales, and the outcome rules retain all confidence and score thresholds.
 - `server/jev-key.ts`, `server/jev-settings.ts`, `src/JevKeySettings.tsx`: the requested in-app Jev key setup uses Windows current-user DPAPI, never returns saved secrets, explains storage/fallback, and provides replace/remove/authentication-test actions.
 - `tests/jev-key.test.ts`: synthetic lifecycle and HTTP protection cases plus an actual Windows DPAPI round trip. Existing plain-text environment-file setup stays explicit and unchanged.
 
@@ -41,7 +41,7 @@ The explanation uses deterministic wording and exact excerpts. It checks evidenc
 
 - Typecheck, production build, and all 22 tests passed, including actual DPAPI, key replacement/removal, corrupt-key handling, provider-error redaction, and same-origin settings protections.
 - The built key settings passed desktop (1440px) and narrow (390px) browser checks in both themes. An isolated fixture used actual Windows encryption and synthetic credentials to verify save, replacement, persistence after reload, removal, cleared input, and absence from browser storage. Its simulated provider rejection displayed a clear error. The live app separately authenticated with the existing configuration; a synthetic invalid credential was rejected by the real service. No project evidence was sent by these connection tests.
-- The README Mermaid rubric was rendered and visually checked for readable labels and agreement with the implemented thresholds.
+- The initial inline Mermaid graphic clipped its formula and overlapped its group title in GitHub; connectors were hard to see against a dark page. The corrected SVG uses native SVG text, explicit connector colors, a fixed background, and shorter labels. The exact embedded asset was visually checked in light and dark README surroundings at desktop and 390px widths; the narrow view fits and links to the full-size graphic. Scoring details remain available as text below it.
 - One indexed project completed base and automatic deep assessment with the live Jev service. Three cited dimensions were explained automatically; uncertain rating strength kept the project in investigate.
 - A batch of projects with no eligible notes completed locally with zero model calls. Metadata-only cache contents were inspected.
 - The live project result was reused after a server restart. A changed-input preview remained invalidated.
