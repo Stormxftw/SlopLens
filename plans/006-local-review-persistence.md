@@ -1,6 +1,6 @@
 # 006 — Local review persistence
 
-**Status:** Future; conditional on demonstrated need.
+**Status:** Superseded by 007. The portfolio review now stores only result metadata and evidence fingerprints locally.
 
 ## Problem and first useful action
 

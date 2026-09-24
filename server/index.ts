@@ -4,9 +4,12 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DashboardData } from '../src/types.ts';
 import { buildDashboard } from './projects.ts';
-import { previewReview, runJevReview, type JevReview } from './review.ts';
+import { batchRunning, batchStatus, prepareBatch, startBatch, validReviews, type BatchPreview } from './review-batch.ts';
+import { JevKeyStore } from './jev-key.ts';
+import { handleJevSettings } from './jev-settings.ts';
 
-const PORT = 4381;
+const PORT = Number(process.env.AGENT_DASH_PORT ?? 4381);
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) throw new Error('AGENT_DASH_PORT must be a valid TCP port.');
 const HOST = '127.0.0.1';
 const DIST = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 let data: DashboardData | null = null;
@@ -14,18 +17,9 @@ let state: 'loading' | 'ready' | 'error' = 'loading';
 let progress = 'Starting local index…';
 let lastError: string | null = null;
 let running: Promise<void> | null = null;
-const reviews = new Map<string, JevReview>();
-const reviewing = new Set<string>();
+let batchPreview: BatchPreview | null = null;
 const APP_ROOT = resolve(DIST, '..');
-
-async function typesafeKey(): Promise<string> {
-  if (process.env.TYPESAFE_API_KEY?.trim()) return process.env.TYPESAFE_API_KEY.trim();
-  try {
-    const config = await readFile(join(APP_ROOT, '.env.local'), 'utf8');
-    const match = config.match(/^\s*TYPESAFE_API_KEY\s*=\s*(.+)\s*$/m);
-    return match?.[1]?.trim().replace(/^['"]|['"]$/g, '') ?? '';
-  } catch { return ''; }
-}
+const jevKeys = new JevKeyStore(APP_ROOT);
 
 async function readSmallJson(request: IncomingMessage): Promise<unknown> {
   let content = '';
@@ -42,7 +36,8 @@ function refresh(): Promise<void> {
   progress = 'Preparing local scan…';
   lastError = null;
   running = buildDashboard((message) => { progress = message; })
-    .then((next) => { data = next; reviews.clear(); state = 'ready'; progress = `Indexed ${next.projects.length} projects`; })
+    .then((next) => { batchPreview = null; return next; })
+    .then((next) => { data = next; state = 'ready'; progress = `Indexed ${next.projects.length} projects`; })
     .catch((error: unknown) => {
       state = 'error';
       lastError = error instanceof Error ? error.message : 'Index failed';
@@ -89,11 +84,13 @@ const server = createServer((request, response) => {
       json(response, 403, { error: 'Local host only' }); return;
     }
     const url = new URL(request.url ?? '/', `http://${HOST}:${PORT}`);
+    if (await handleJevSettings(request, response, url.pathname, jevKeys, PORT, batchRunning)) return;
     if (url.pathname === '/api/status' && request.method === 'GET') {
       json(response, 200, { state, progress, lastError, generatedAt: data?.generatedAt ?? null }); return;
     }
     if (url.pathname === '/api/refresh' && request.method === 'POST') {
       if (!sameOrigin(request)) { json(response, 403, { error: 'Same-origin refresh only' }); return; }
+      if (batchRunning()) { json(response, 409, { error: 'Wait for the Jev batch to finish before refreshing.' }); return; }
       void refresh();
       json(response, 202, { state: 'loading', progress }); return;
     }
@@ -101,35 +98,43 @@ const server = createServer((request, response) => {
       if (!data) { json(response, 202, { state, progress, lastError }); return; }
       json(response, 200, data); return;
     }
-    if (url.pathname === '/api/reviews' && request.method === 'GET') {
-      json(response, 200, { reviews: [...reviews.values()] }); return;
-    }
-    if (url.pathname.startsWith('/api/review/')) {
+    if (url.pathname === '/api/review-batch/preview' && request.method === 'GET') {
       if (!data) { json(response, 202, { state, progress, lastError }); return; }
-      const id = url.pathname.slice('/api/review/'.length);
-      const project = data.projects.find((item) => item.id === id);
-      if (!project) { json(response, 404, { error: 'Project not found' }); return; }
-      if (request.method === 'GET') {
-        json(response, 200, { preview: await previewReview(project), review: reviews.get(id) ?? null, configured: Boolean(await typesafeKey()) }); return;
+      batchPreview = await prepareBatch(data);
+      json(response, 200, { preview: batchPreview, configured: (await jevKeys.status()).configured,
+        reviews: await validReviews(batchPreview) }); return;
+    }
+    if (url.pathname === '/api/review-batch/status' && request.method === 'GET') {
+      if (!data) { json(response, 202, { state, progress, lastError }); return; }
+      const preview = batchPreview ?? await prepareBatch(data);
+      batchPreview = preview;
+      json(response, 200, { job: batchStatus(), reviews: await validReviews(preview) }); return;
+    }
+    if (url.pathname === '/api/review-batch' && request.method === 'POST') {
+      if (!sameOrigin(request)) { json(response, 403, { error: 'Same-origin Jev review only' }); return; }
+      if (!data) { json(response, 202, { state, progress, lastError }); return; }
+      if (batchRunning()) { json(response, 409, { error: 'A Jev batch is already running.' }); return; }
+      let body: unknown;
+      try { body = await readSmallJson(request); } catch (error) { json(response, 400, { error: (error as Error).message }); return; }
+      const options = body && typeof body === 'object' ? body as Record<string, unknown> : {};
+      if (typeof options.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(options.fingerprint)
+          || (options.projectIds !== undefined && (!Array.isArray(options.projectIds)
+            || options.projectIds.some((id) => typeof id !== 'string')))) {
+        json(response, 400, { error: 'Invalid batch request.' }); return;
       }
-      if (request.method === 'POST') {
-        if (!sameOrigin(request)) { json(response, 403, { error: 'Same-origin Jev review only' }); return; }
-        if (reviewing.has(id)) { json(response, 409, { error: 'A Jev review is already running for this project.' }); return; }
-        let body: unknown;
-        try { body = await readSmallJson(request); } catch (error) { json(response, 400, { error: (error as Error).message }); return; }
-        const goal = typeof body === 'object' && body !== null ? (body as { goal?: unknown }).goal : null;
-        if (typeof goal !== 'string' || !goal.trim() || goal.length > 400) { json(response, 400, { error: 'Enter a goal of 1–400 characters.' }); return; }
-        const preview = await previewReview(project);
-        if (!preview.documents.length) { json(response, 422, { error: 'No readable project overview document is available.' }); return; }
-        reviewing.add(id);
-        try {
-          const review = await runJevReview(project, goal, preview, await typesafeKey());
-          reviews.set(id, review);
-          json(response, 200, { review });
-        } catch (error) { json(response, 502, { error: error instanceof Error ? error.message : 'Jev review failed.' }); }
-        finally { reviewing.delete(id); }
-        return;
+      const latest = await prepareBatch(data);
+      if (latest.fingerprint !== options.fingerprint) {
+        json(response, 409, { error: 'Project evidence changed. Reload the batch preview before sending.' }); return;
       }
+      batchPreview = latest;
+      try {
+        const job = await startBatch(latest, await jevKeys.key(), {
+          projectIds: options.projectIds as string[] | undefined,
+          force: options.force === true, deep: options.deep === true,
+        });
+        json(response, 202, { job });
+      } catch (error) { json(response, 400, { error: error instanceof Error ? error.message : 'Could not start the Jev batch.' }); }
+      return;
     }
     if (url.pathname.startsWith('/api/projects/') && request.method === 'GET') {
       if (!data) { json(response, 202, { state, progress, lastError }); return; }

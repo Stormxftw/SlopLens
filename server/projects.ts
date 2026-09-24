@@ -164,6 +164,11 @@ function combineObservation(target: Observation, other: Observation): void {
   target.activeMs += other.activeMs;
   target.activePartial ||= other.activePartial;
   target.usageMissing ||= other.usageMissing;
+  target.toolPartial ||= other.toolPartial;
+  target.delegationCount += other.delegationCount;
+  for (const [category, count] of Object.entries(other.toolCategories)) {
+    target.toolCategories[category] = (target.toolCategories[category] ?? 0) + count;
+  }
   for (const [model, usage] of other.byModel) target.byModel.set(model, addUsage(target.byModel.get(model) ?? emptyUsage(), usage));
 }
 
@@ -259,6 +264,14 @@ export async function buildDashboard(onProgress: (message: string) => void = () 
       activePartial: sessions.some((session) => session.activePartial),
       spanMs: sessions.reduce((sum, session) => sum + (session.spanMs ?? 0), 0),
       spanPartial: sessions.some((session) => session.spanMs === null), code, models, sessions,
+      tools: {
+        status: rows.some((row) => row.toolPartial) ? 'partial' : 'available',
+        categories: rows.reduce<Record<string, number>>((total, row) => {
+          for (const [category, count] of Object.entries(row.toolCategories)) total[category] = (total[category] ?? 0) + count;
+          return total;
+        }, {}),
+        delegationCount: rows.reduce((sum, row) => sum + row.delegationCount, 0),
+      },
     });
   }
   summaries.sort((a, b) => (b.lastAgentAt ?? '').localeCompare(a.lastAgentAt ?? ''));

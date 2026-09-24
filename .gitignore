@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .cache/
+.local/
 .playwright-cli/
 *.log
 .env

@@ -46,6 +46,12 @@ export interface CodeMetrics {
   note?: string;
 }
 
+export interface ToolMetrics {
+  status: 'available' | 'partial' | 'unavailable';
+  categories: Record<string, number>;
+  delegationCount: number;
+}
+
 export interface ProjectSummary {
   id: string;
   name: string;
@@ -64,6 +70,7 @@ export interface ProjectSummary {
   spanMs: number;
   spanPartial: boolean;
   code: CodeMetrics;
+  tools: ToolMetrics;
   models: ModelUsage[];
   sessions: SessionSummary[];
 }

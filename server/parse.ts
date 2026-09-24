@@ -14,6 +14,25 @@ export interface Observation {
   activePartial: boolean;
   usageMissing: boolean;
   byModel: Map<string, TokenUsage>;
+  toolCategories: Record<string, number>;
+  delegationCount: number;
+  toolPartial: boolean;
+}
+
+export function toolCategory(name: string): string {
+  const value = name.toLowerCase();
+  if (/spawn_agent|delegate|subagent|^task$/.test(value)) return 'delegation';
+  if (/apply_patch|(^|[._])edit|(^|[._])write/.test(value)) return 'edit';
+  if (/browser|playwright|web|search/.test(value)) return 'browser';
+  if (/read|grep|(^|[._])rg$|(^|[._])find/.test(value)) return 'read';
+  if (/exec|shell|bash|terminal|powershell/.test(value)) return 'command';
+  return 'other';
+}
+
+function countTool(row: Observation, name: string): void {
+  const category = toolCategory(name);
+  row.toolCategories[category] = (row.toolCategories[category] ?? 0) + 1;
+  if (category === 'delegation') row.delegationCount += 1;
 }
 
 const finite = (value: unknown): number => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
@@ -27,7 +46,8 @@ const str = (value: unknown): string | null => typeof value === 'string' && valu
 function observation(map: Map<string, Observation>, provider: Provider, sessionId: string, cwd: string): Observation {
   let row = map.get(cwd);
   if (!row) {
-    row = { provider, sessionId, cwd, firstAt: null, lastAt: null, activeMs: 0, activePartial: false, usageMissing: false, byModel: new Map() };
+    row = { provider, sessionId, cwd, firstAt: null, lastAt: null, activeMs: 0, activePartial: false, usageMissing: false, byModel: new Map(),
+      toolCategories: {}, delegationCount: 0, toolPartial: false };
     map.set(cwd, row);
   }
   return row;
@@ -80,11 +100,12 @@ export async function parseCodex(file: string): Promise<Observation[]> {
   let previous = emptyUsage();
   let taskStart: number | null = null;
   let sawUsage = false;
+  const seenTools = new Set<string>();
   const input = createInterface({ input: createReadStream(file, { encoding: 'utf8' }), crlfDelay: Infinity });
   for await (const line of input) {
     if (!line.includes('"type":"session_meta"') && !line.includes('"type":"turn_context"')
       && !line.includes('"type":"token_count"') && !line.includes('"type":"task_started"')
-      && !line.includes('"type":"task_complete"')) continue;
+      && !line.includes('"type":"task_complete"') && !line.includes('"type":"response_item"')) continue;
     let record: Record<string, unknown>;
     try { record = obj(JSON.parse(line)); } catch { continue; }
     const payload = obj(record.payload);
@@ -99,6 +120,17 @@ export async function parseCodex(file: string): Promise<Observation[]> {
       cwd = str(payload.cwd) ?? cwd;
       model = str(payload.model) ?? model;
       if (cwd) touch(observation(rows, 'Codex', sessionId, cwd), at);
+      continue;
+    }
+    if (record.type === 'response_item' && cwd && payload.type === 'function_call') {
+      const callId = str(payload.call_id) ?? str(payload.id);
+      const key = callId ?? String(record.timestamp) + ':' + str(payload.name);
+      if (!seenTools.has(key)) {
+        seenTools.add(key);
+        const name = str(payload.name);
+        if (name) countTool(observation(rows, 'Codex', sessionId, cwd), name);
+        else observation(rows, 'Codex', sessionId, cwd).toolPartial = true;
+      }
       continue;
     }
     if (record.type !== 'event_msg' || !cwd) continue;
@@ -167,6 +199,7 @@ export async function parseClaude(file: string): Promise<Observation[]> {
   let currentCwd: string | null = null;
   let turnStart: number | null = null;
   let turnCwd: string | null = null;
+  const seenTools = new Set<string>();
   const input = createInterface({ input: createReadStream(file, { encoding: 'utf8' }), crlfDelay: Infinity });
   for await (const line of input) {
     if (!line.includes('"type":"user"') && !line.includes('"type":"assistant"')) continue;
@@ -180,6 +213,19 @@ export async function parseClaude(file: string): Promise<Observation[]> {
     const row = observation(rows, 'Claude Code', sessionId, currentCwd);
     touch(row, at);
     const message = obj(record.message);
+    if (record.type === 'assistant' && Array.isArray(message.content)) {
+      for (const part of message.content) {
+        const item = obj(part);
+        if (item.type !== 'tool_use') continue;
+        const id = str(item.id);
+        const key = id ?? str(record.uuid) + ':' + str(item.name);
+        if (seenTools.has(key)) continue;
+        seenTools.add(key);
+        const name = str(item.name);
+        if (name) countTool(row, name);
+        else row.toolPartial = true;
+      }
+    }
     if (record.type === 'user') {
       if (!isToolResultOnly(message.content)) {
         if (turnStart !== null && turnCwd) observation(rows, 'Claude Code', sessionId, turnCwd).activePartial = true;

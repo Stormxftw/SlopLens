@@ -2,7 +2,7 @@
 
 ## Purpose and current result
 
-SlopLens is a local browser dashboard for developers reviewing projects associated with coding-agent sessions. The current Windows release reads Codex and Claude Code history, groups sessions by recorded working directory or Git root, and shows activity, source size, languages, models, tokens, time, and dated API price equivalents. Its Review page provides a deterministic inspection queue and optional, one-project-at-a-time Jev assessment. It does not decide whether past effort was worthwhile.
+SlopLens is a local browser dashboard for developers reviewing projects associated with coding-agent sessions. The current Windows release reads Codex and Claude Code history, groups sessions by recorded working directory or Git root, and shows activity, source size, languages, models, tokens, time, and dated API price equivalents. Its Review page provides a deterministic inspection queue and a previewed Jev batch assessment across indexed projects. It does not decide whether past effort was worthwhile.
 
 Keep the next change a complete, demonstrable slice. Start with the user-visible result and its verification; update `CURRENT_MILESTONE.md` and a single plan file. Finish that slice before expanding the source list or architecture. The completed and proposed plans are indexed in [`plans/README.md`](plans/README.md).
 
@@ -16,8 +16,8 @@ The larger vision is a cross-agent project dashboard that helps a developer choo
 | History parsing | `server/parse.ts` | Separate Codex and Claude Code JSONL handling |
 | Project aggregation | `server/projects.ts` | Path grouping, session summaries, source scan |
 | Price table | `server/pricing.ts` | Dated public API rates and token categories |
-| Optional assessment | `server/review.ts` | Bounded document preview and Jev request |
-| UI | `src/main.tsx`, `src/review.ts`, `src/types.ts` | Pages, review priority, shared data shapes |
+| Optional assessment | `server/portfolio-review.ts`, `server/review-batch.ts` | Screened evidence, typed Jev judgments, batch progress, and local score cache |
+| UI | `src/main.tsx`, `src/PortfolioReviewView.tsx`, `src/review.ts` | Pages, request preview, and separate ranking views |
 | Styling | `src/style.css`, `src/dark.css`, `src/layout.css` | Layout and theme |
 | Tests | `tests/` | Parsing, aggregation, pricing, review behavior |
 
@@ -36,14 +36,14 @@ The visual direction is calm and editorial: washed charcoal and warm off-white, 
 
 ## Review and decision boundaries
 
-The review priority is a queue for inspection: age of last agent activity multiplied by capped, recorded effort from active time, tokens, and session count. It is not a future-value score. Sunk cost alone is never a reason to continue a project. The optional Jev score concerns clarity of a bounded next release and evidence that it serves the stated goal; it must ignore past effort and dollar estimates. Display confidence and source limitations.
+The review priority is a queue for inspection: age of last agent activity multiplied by capped, recorded effort from active time, tokens, and session count. It is not a future-value score. Sunk cost alone is never a reason to continue a project. The Jev forward signal combines documented working output, next-release clarity, and use-case evidence. Past effort and estimated dollars inform a separate effort-context judgment. Display confidence, supporting notes, and source limitations.
 
-Jev runs only after a deliberate click for one project. Preview the exact document excerpts and goal before a request. The current server reads only top-level milestone, project-state, and README documents with a total character cap; it never sends session transcripts or source files. Reviews are in memory and clear on restart or refresh. No automatic bulk assessment or retry. Any future document source or transmission change needs a specific user-visible preview and verification.
+Jev runs only after a deliberate Analyze all, Reanalyze, Deep review, or failed-request retry click. Preview the exact base and possible deep requests before transmission. The server reads an allowlist of top-level overview and tracking documents plus bounded plans, screens whole lines, and prioritizes current actions and acceptance over introductory text. Section labels preserve context; each excerpt is at most 1,200 characters. It excludes recognized private paths, session IDs, credentials, and suspicious text; raw transcripts, source files, and tool arguments/results remain local. Projects with no eligible excerpts are handled locally. Other changed projects use up to two calls, with bounded concurrency and limited rate-limit retries. Code validates a separate citation for each rating, gates recommendations, and assembles the explanation automatically. Never equate an unchecked acceptance item with absent implementation or describe note-based checks as live verification. Keep human labeling and second-assistant export optional. Cache only metadata, including the rubric and citation confidence; reconstruct explanations from matching evidence. Preserve a successful base result when expansion fails. Any new document source or transmission change needs a specific visible preview and verification.
 
 ## Privacy and repository hygiene
 
-- Read local history without modifying it. Keep session content local and out of UI responses, logs, fixtures, documentation, and Git.
-- Keep API keys in the ignored `.env.local` or server process environment. Never put a real value in source, browser code, tests, plans, screenshots, tool output, or commits. Document variable names and placeholders only.
+- Read local history without modifying it. Keep raw session content local and out of UI responses, logs, fixtures, documentation, and Git. Derived counts and dates are allowed in the exact Jev preview.
+- Prefer the app's Windows DPAPI key field: encrypted `.local/jev-key.dpapi.json`, scoped to the account running the server. Retain environment and ignored `.env.local` compatibility, clearly label plain-text fallback, and never silently write unencrypted credentials. Key settings must retain same-origin/header checks, no-store responses, and redacted errors. Never return a saved key to the browser or persist it in browser storage, command arguments, fixtures, logs, or commits. Use synthetic credentials in tests and document variable names/placeholders only.
 - Treat document excerpts as potentially private. Do not copy real project text into plans or bug reports. Avoid personal names, account handles, absolute machine paths, real repository names, session IDs, exact private usage figures, or identifying screenshots in `AGENTS.md`, `CURRENT_MILESTONE.md`, `BACKLOG.md`, `plans/`, and any future PRD.
 - Do not commit `node_modules/`, `dist/`, `.env*` secrets, session logs, or generated local data. Review an explicit staged-file allowlist and scan for identifiers and credentials before committing. In a dirty worktree, protect unrelated work; never reset, stash, clean, or broadly format it.
 - A private repository reduces exposure but does not make committed sensitive material safe. Changes to current files do not erase older Git history.

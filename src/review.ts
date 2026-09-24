@@ -1,24 +1,5 @@
 import type { ProjectSummary } from './types.ts';
 
-export interface ReviewPreview {
-  projectId: string;
-  documents: { name: string; excerpt: string; truncated: boolean }[];
-  characters: number;
-}
-
-export interface JevReview {
-  projectId: string;
-  goal: string;
-  reviewedAt: string;
-  model: string;
-  releaseClarity: { score: number; confidence: number };
-  valueEvidence: { score: number; confidence: number };
-  worthExploring: number;
-  inputTokens: number | null;
-  outputTokens: number | null;
-  documentNames: string[];
-}
-
 export function ageDays(project: ProjectSummary, now = new Date()): number | null {
   if (!project.lastAgentAt) return null;
   const timestamp = Date.parse(project.lastAgentAt);

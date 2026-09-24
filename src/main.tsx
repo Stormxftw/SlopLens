@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ArrowUpRight, ArrowLeft, ArrowRight, Clock3, Code2, Compass, ExternalLink, GitCommitHorizontal, Layers3, Moon, RefreshCw, Search, Sparkles, Sun, Timer, Waves } from 'lucide-react';
 import type { DashboardData, ProjectSummary, Provider } from './types.ts';
-import { ageDays, reviewPriority, type JevReview, type ReviewPreview } from './review.ts';
+import ReviewView from './PortfolioReviewView.tsx';
 import './style.css';
 import './dark.css';
 import './layout.css';
@@ -93,64 +93,6 @@ function ProjectDetail({ project, back }: { project: ProjectSummary; back: () =>
   </>;
 }
 
-function ReviewView({ data, open }: { data: DashboardData; open: (id: string) => void }) {
-  const ranked = useMemo(() => [...data.projects].sort((a, b) => (reviewPriority(b) ?? -1) - (reviewPriority(a) ?? -1)), [data]);
-  const [selected, setSelected] = useState<string | null>(ranked[0]?.id ?? null);
-  const [preview, setPreview] = useState<ReviewPreview | null>(null);
-  const [configured, setConfigured] = useState(false);
-  const [reviews, setReviews] = useState<JevReview[]>([]);
-  const [goal, setGoal] = useState('Ship a small working release I can demonstrate.');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<'queue' | 'potential'>('queue');
-  const project = data.projects.find((item) => item.id === selected) ?? null;
-  const review = reviews.find((item) => item.projectId === selected) ?? null;
-  const assessed = [...reviews].sort((a, b) => b.worthExploring - a.worthExploring);
-
-  useEffect(() => {
-    let stopped = false;
-    void fetch('/api/reviews').then((response) => response.json()).then((result: { reviews: JevReview[] }) => {
-      if (!stopped) setReviews(result.reviews);
-    }).catch(() => { if (!stopped) setError('Could not load Jev reviews.'); });
-    return () => { stopped = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!selected) return;
-    let stopped = false;
-    setPreview(null); setError(null);
-    void fetch(`/api/review/${encodeURIComponent(selected)}`).then(async (response) => {
-      if (!response.ok) throw new Error('Could not load project review preview.');
-      return response.json() as Promise<{ preview: ReviewPreview; configured: boolean; review: JevReview | null }>;
-    }).then((result) => { if (!stopped) { setPreview(result.preview); setConfigured(result.configured); } })
-      .catch((reason) => { if (!stopped) setError(reason instanceof Error ? reason.message : 'Preview unavailable.'); });
-    return () => { stopped = true; };
-  }, [selected]);
-
-  const analyze = async () => {
-    if (!project || !preview) return;
-    setBusy(true); setError(null);
-    try {
-      const response = await fetch(`/api/review/${encodeURIComponent(project.id)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal }) });
-      const result = await response.json() as { review?: JevReview; error?: string };
-      if (!response.ok || !result.review) throw new Error(result.error ?? `Jev returned HTTP ${response.status}.`);
-      setReviews((current) => [result.review!, ...current.filter((item) => item.projectId !== project.id)]);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Jev review failed.'); }
-    finally { setBusy(false); }
-  };
-
-  return <section className="review-page"><div className="review-heading"><span className="eyebrow">THE NEXT MOVE / 02</span><h1>Review projects<span className="period">.</span></h1><p>Start with projects that are old and have substantial recorded agent work. Sixty days without recorded agent activity is a stale signal. Past investment raises review priority; it does not make continuing the right choice.</p></div>
-    <div className="review-tabs"><button className={mode === 'queue' ? 'active' : ''} onClick={() => { setMode('queue'); setSelected(ranked[0]?.id ?? null); }}>Review queue <span>{ranked.length}</span></button><button className={mode === 'potential' ? 'active' : ''} onClick={() => { setMode('potential'); setSelected(assessed[0]?.projectId ?? null); }}>Jev assessed <span>{assessed.length}</span></button></div>
-    <div className="review-layout"><div className="review-list">
-      {mode === 'queue' ? ranked.map((item, index) => { const days = ageDays(item); const priority = reviewPriority(item); return <button className={`review-row ${selected === item.id ? 'selected' : ''}`} key={item.id} onClick={() => setSelected(item.id)}><span className="review-rank">{String(index + 1).padStart(2, '0')}</span><span className="review-row-main"><strong>{item.name}</strong><small>{days === null ? 'Activity date unknown' : `${days} days since agent activity`} · {item.sessionCount} sessions</small><span>{duration(item.activeMs)}{item.activePartial ? '+' : ''} observed active · {compact.format(item.tokens)} recorded tokens{item.usageMissing ? ' +' : ''}</span></span><span className="review-score">{priority === null ? '—' : priority}<small>review priority</small></span></button>; }) : assessed.length ? assessed.map((item, index) => { const match = data.projects.find((candidate) => candidate.id === item.projectId); return match ? <button className={`review-row ${selected === item.projectId ? 'selected' : ''}`} key={item.projectId} onClick={() => setSelected(item.projectId)}><span className="review-rank">{String(index + 1).padStart(2, '0')}</span><span className="review-row-main"><strong>{match.name}</strong><small>{date(item.reviewedAt)} · goal: {item.goal}</small><span>Clarity {Math.round(item.releaseClarity.score / 3 * 100)} · value evidence {Math.round(item.valueEvidence.score / 3 * 100)}{Math.min(item.releaseClarity.confidence, item.valueEvidence.confidence) < 0.5 ? ' · low confidence' : ''}</span></span><span className="review-score">{item.worthExploring}<small>forward signal</small></span></button> : null; }) : <div className="empty-state"><h3>No Jev reviews yet</h3><p>Select a project in the review queue, inspect the source excerpts, and analyze it.</p></div>}
-    </div><aside className="review-detail">{project && <><span className="eyebrow">PROJECT REVIEW</span><h2>{project.name}</h2><p className="review-path">{project.path}</p><div className="review-facts"><div><span>LAST ACTIVITY</span><strong>{date(project.lastAgentAt)}</strong></div><div><span>LAST COMMIT</span><strong>{date(project.lastCommitAt)}</strong></div><div><span>OBSERVED ACTIVE</span><strong>{duration(project.activeMs)}{project.activePartial ? '+' : ''}</strong></div><div><span>API EQUIVALENT</span><strong>{costLabel(project)}</strong></div></div><p className="review-caveat">Review priority uses age × recorded effort (45% active time, 35% tokens, 20% sessions; each capped). Dollar figures are API price equivalents, never billed spend. Unknown usage makes effort a lower bound.</p>
-      {review && <div className="jev-result"><span className="eyebrow">JEV ASSESSMENT · {date(review.reviewedAt)}</span><strong>{review.worthExploring}<small>/ 100 forward signal</small></strong><div><span>Next release clarity</span><b>{Math.round(review.releaseClarity.score / 3 * 100)} / 100</b></div><div><span>Evidence for your goal</span><b>{Math.round(review.valueEvidence.score / 3 * 100)} / 100</b></div><p>{Math.min(review.releaseClarity.confidence, review.valueEvidence.confidence) < 0.5 ? 'Low model confidence: read the source notes and decide yourself.' : 'A structured judgment from the supplied notes, not proof of future value.'} Goal: {review.goal}</p><small>{review.model} · {review.inputTokens === null ? 'input tokens unknown' : `${review.inputTokens} input tokens`} · {review.outputTokens === null ? 'output tokens unknown' : `${review.outputTokens} output tokens`}</small></div>}
-      <label className="review-goal">What should this project accomplish next?<textarea value={goal} maxLength={400} onChange={(event) => setGoal(event.target.value)} /></label><p className="review-send-note">Analyze with Jev sends this goal, basic project metadata, and the excerpts below to TypeSafe. Session transcripts and source files are excluded. One request runs only when you click Analyze.</p>
-      {preview === null ? <p className="muted">Loading document preview…</p> : preview.documents.length ? <div className="review-docs">{preview.documents.map((document) => <details key={document.name}><summary>{document.name}{document.truncated ? ' · excerpt' : ''}</summary><pre>{document.excerpt}</pre></details>)}</div> : <p className="muted">No readable CURRENT_MILESTONE.md, PROJECT_STATE.md, or README.md is available. Jev cannot assess this project from source notes.</p>}
-      {error && <div className="error-banner">{error}</div>}
-      <div className="review-actions"><button className="primary-action" disabled={busy || !configured || !preview?.documents.length || !goal.trim()} onClick={() => void analyze()}>{busy ? 'Asking Jev…' : review ? 'Reassess with Jev' : 'Analyze with Jev'} <ArrowRight size={16} /></button><button className="review-open" onClick={() => open(project.id)}>Open project <ArrowUpRight size={15} /></button></div>{!configured && <p className="review-config">Jev is not configured. Add TYPESAFE_API_KEY to this app’s .env.local file or server environment.</p>}</>}</aside></div><p className="review-method">The forward signal combines Jev’s next release clarity (55%) and goal evidence (45%). Only assessed projects appear in the Jev ranking. It cannot know your current priorities, whether you enjoy the work, or actual billed cost; use it to choose what to inspect next.</p></section>;
-}
-
 function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
   const [status, setStatus] = useState<Status>({ state: 'loading', progress: 'Connecting to local index…', lastError: null, generatedAt: null });
@@ -207,7 +149,7 @@ function App() {
   const refresh = async () => { try { await fetch('/api/refresh', { method: 'POST' }); setStatus((current) => ({ ...current, state: 'loading', progress: 'Refreshing local history…' })); } catch { setNetworkError('Could not start refresh'); } };
   return <div className="app"><header className="topbar"><div className="topbar-inner"><button className="brand" onClick={back} aria-label="SlopLens dashboard home"><span className="brand-symbol"><span /></span><span>SlopLens<span className="brand-dot">.</span></span></button><nav><button className={!selectedId && !reviewPage ? 'active' : ''} onClick={back}>Overview</button><a href="#projects">Projects</a><a className={reviewPage ? 'active' : ''} href="#review">Review</a></nav><div className="topbar-right"><span className="local-pill"><span /> LOCAL VIEW</span><button className="theme-button" type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><button className="refresh-button" onClick={() => void refresh()} disabled={status.state === 'loading'} title="Refresh local index"><RefreshCw size={17} className={status.state === 'loading' ? 'spinning' : ''} /><span>Refresh</span></button></div></div></header>
     <main className="main">{status.state === 'loading' && <div className="index-banner"><RefreshCw size={16} className="spinning" /> {status.progress}</div>}{status.state === 'error' && <div className="error-banner">{status.progress}: {status.lastError}</div>}{networkError && <div className="error-banner">Local server: {networkError}</div>}{data ? (selectedId ? (detail ? <ProjectDetail project={detail} back={back} /> : <div className="empty-state"><h2>Opening project…</h2><button onClick={back}>Back to overview</button></div>) : reviewPage ? <ReviewView data={data} open={open} /> : <Overview data={data} open={open} />) : <div className="loading-screen"><div className="loading-orbit"><span /></div><span className="eyebrow">READING LOCAL AGENT HISTORY</span><h1>Good work takes <em>a moment.</em></h1><p>{status.progress}</p></div>}</main>
-    <footer><div><strong>SlopLens.</strong><span>SEE THE WORK CLEARLY.</span></div><p>Local-first project intelligence · Jev review sends only the previewed notes when requested</p><span>{data ? `Indexed ${date(data.generatedAt)}` : 'Indexing local history'}</span></footer></div>;
+    <footer><div><strong>SlopLens.</strong><span>SEE THE WORK CLEARLY.</span></div><p>Local-first project intelligence · Jev batch review sends only screened, previewed evidence when requested</p><span>{data ? `Indexed ${date(data.generatedAt)}` : 'Indexing local history'}</span></footer></div>;
 }
 
 createRoot(document.getElementById('root')!).render(<App />);

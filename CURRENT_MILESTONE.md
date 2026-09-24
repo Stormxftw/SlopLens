@@ -1,18 +1,23 @@
 # Current Milestone
 
-**Goal:** Keep project guidance and release plans in sanitized, reviewable files.
+**Goal:** Configure Jev safely in the app and complete project review automatically after one batch approval.
 
-**User-visible result:** A contributor can open `AGENTS.md` for the working rules and `plans/` for one file per completed or proposed release.
+**User-visible result:** Analyze all selects relevant notes, assesses projects, checks citations, and presents a readable explanation and a recorded next step. Missing evidence and failed deeper calls are handled without a manual scorecard or assistant handoff.
 
 ## Completion checklist
 
-- [x] Document the current product, data meanings, privacy boundaries, and verification commands in `AGENTS.md`.
-- [x] Keep each distinct release or proposed feature in its own file under `plans/`.
-- [x] Remove personal identifiers, local paths, example repository names, and private session figures from planning documents.
-- [x] Verify relative links and scan the documentation for identifiers and local key exposure.
+- [x] Current actions, open acceptance, and long safe notes reach the bounded preview
+- [x] Each rating has a checked citation and an automatic explanation
+- [x] Empty evidence uses no remote call; failed expansion preserves the base result
+- [x] Regression tests, typecheck, and build pass
+- [x] A bounded live assessment and desktop/narrow browser workflow pass
+- [x] README explains the grading rubric with a graphic matched to the implemented rules
+- [x] In-app key entry uses Windows encryption and explains storage, replacement, removal, and fallback
+- [x] Key lifecycle, actual DPAPI, redacted connection testing, and origin protections pass automated tests
+- [x] Key settings are verified in the browser at desktop and narrow widths
 
-**Not part of this milestone:** A new agent source, automatic review calls, persistent review storage, or billing reconciliation.
+**Release closeout:** The automatic review, rubric graphic, and encrypted key settings are verified and ready for the requested commit and push. Local caches, credentials, and identifying screenshots stay excluded.
 
-**Next product milestone:** Allow an explicit, previewed summary for a project with no readable overview document; see `plans/004-manual-project-summary.md`.
+**Not part of this milestone:** A second model provider, autonomous code execution in other projects, scheduled background calls, or automatic archive decisions.
 
-**Previous milestones:** See the [plan index](plans/README.md). Historical verification is summarized there without local identifiers or session-specific values.
+**Previous milestones:** See the plan index. The old unscreened one-project send endpoint was retired; all live Jev requests use the previewed batch path.
